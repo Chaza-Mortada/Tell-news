@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+@theme {
+  /* Keep your keyframes inside @theme */
+  @keyframes scroll-news {
+    0% { transform: translateX(100%); opacity: 0; }
+    10% { transform: translateX(0); opacity: 1; }
+    90% { transform: translateX(0); opacity: 1; }
+    100% { transform: translateX(-100%); opacity: 0; }
+  }
+}
+
+/* MOVE THIS OUTSIDE THE @THEME BLOCK */
+.animate-scroll-news {
+  animation: scroll-news 5s ease-in-out infinite;
+}
