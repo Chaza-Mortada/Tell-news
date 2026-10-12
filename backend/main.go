@@ -7,7 +7,7 @@ import (
 	"backend/models"
 	"net/http"
 	"strings"
-
+    "os"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -18,8 +18,19 @@ func main() {
 
 	r := gin.Default()
 
+	frontendURL := os.Getenv("FRONTEND_URL")
+
+    allowedOrigins := []string{
+    "http://localhost:5173",
+    "http://localhost:4173",
+    }
+
+    if frontendURL != "" {
+    allowedOrigins = append(allowedOrigins, frontendURL)
+    }
+
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:4173"},
+		AllowOrigins:     allowedOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		AllowCredentials: true,
@@ -61,5 +72,12 @@ r.Use(func(c *gin.Context) {
 		admin.DELETE("/news/:slug", controllers.DeleteArticle)
 	}
 
-	r.Run(":8080")
+	port := os.Getenv("PORT")
+    if port == "" {
+    port = "8080"
+    }
+
+    if err := r.Run(":" + port); err != nil {
+    panic(err)
+    }
 }

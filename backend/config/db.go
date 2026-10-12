@@ -11,23 +11,21 @@ import (
 var DB *gorm.DB
 
 func ConnectDatabase() {
-	err := godotenv.Load()
-	if err != nil {
-		fmt.Println("Error loading .env file")
+	// Load .env locally. On Render, environment variables
+	// are provided by the hosting platform.
+	_ = godotenv.Load()
+
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		panic("DATABASE_URL is not configured")
 	}
-	host := os.Getenv("DB_HOST")
-	user := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-	dbname := os.Getenv("DB_NAME")
-	port := os.Getenv("DB_PORT")
 
-	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable", 
-		host, user, password, dbname, port)
-
-	database, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-
+	database, err := gorm.Open(
+		postgres.Open(databaseURL),
+		&gorm.Config{},
+	)
 	if err != nil {
-		panic("Failed to connect to database!")
+		panic(fmt.Sprintf("Failed to connect to database: %v", err))
 	}
 
 	DB = database
@@ -35,9 +33,9 @@ func ConnectDatabase() {
 }
 
 func GetJWTSecret() []byte {
-    secret := os.Getenv("JWT_SECRET")
-    if secret == "" {
-        return []byte("default_secret_key_for_dev") 
-    }
-    return []byte(secret)
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		panic("JWT_SECRET is not configured")
+	}
+	return []byte(secret)
 }
