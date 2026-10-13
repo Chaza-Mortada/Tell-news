@@ -6,8 +6,9 @@ import (
 	"backend/middleware"
 	"backend/models"
 	"net/http"
+	"os"
 	"strings"
-    "os"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
@@ -20,14 +21,15 @@ func main() {
 
 	frontendURL := os.Getenv("FRONTEND_URL")
 
-    allowedOrigins := []string{
-    "http://localhost:5173",
-    "http://localhost:4173",
-    }
+	allowedOrigins := []string{
+		"http://localhost:5173",
+		"http://localhost:4173",
+		"https://tell-news-frontend.onrender.com",
+	}
 
-    if frontendURL != "" {
-    allowedOrigins = append(allowedOrigins, frontendURL)
-    }
+	if frontendURL != "" {
+		allowedOrigins = append(allowedOrigins, frontendURL)
+	}
 
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     allowedOrigins,
@@ -52,12 +54,12 @@ func main() {
 
 	r.StaticFS("/uploads", http.Dir("uploads"))
 
-r.Use(func(c *gin.Context) {
-    if strings.Contains(c.Request.URL.Path, "/uploads") {
-        c.Header("Cache-Control", "public, max-age=31536000")
-    }
-    c.Next()
-})
+	r.Use(func(c *gin.Context) {
+		if strings.Contains(c.Request.URL.Path, "/uploads") {
+			c.Header("Cache-Control", "public, max-age=31536000")
+		}
+		c.Next()
+	})
 
 	r.GET("/api/status", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "Running"})
@@ -73,11 +75,11 @@ r.Use(func(c *gin.Context) {
 	}
 
 	port := os.Getenv("PORT")
-    if port == "" {
-    port = "8080"
-    }
+	if port == "" {
+		port = "8080"
+	}
 
-    if err := r.Run(":" + port); err != nil {
-    panic(err)
-    }
+	if err := r.Run(":" + port); err != nil {
+		panic(err)
+	}
 }
