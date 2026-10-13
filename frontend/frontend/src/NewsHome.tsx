@@ -55,6 +55,7 @@ const NewsHome: React.FC = () => {
     const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
     return `${baseUrl}/${cleanPath}`;
   };*/
+
   const getFullImageUrl = (url: string) => {
     if (!url || url === "undefined") {
       return "/no-image.jpg";
@@ -62,13 +63,19 @@ const NewsHome: React.FC = () => {
 
     const firstPath = url.split(",")[0].trim();
 
-    if (firstPath.startsWith("http")) {
+    if (firstPath.startsWith("http://") || firstPath.startsWith("https://")) {
       return firstPath;
     }
 
-    const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:8080";
+    const baseUrl = (
+      import.meta.env.VITE_API_URL || "https://tell-news-1.onrender.com"
+    ).replace(/\/+$/, "");
 
-    const cleanPath = firstPath.replace(/^\/+/, "").replace(/^uploads\//, "");
+    const cleanPath = firstPath.replace(/^\/+/, "");
+
+    if (cleanPath.startsWith("uploads/")) {
+      return `${baseUrl}/${cleanPath}`;
+    }
 
     return `${baseUrl}/uploads/${cleanPath}`;
   };
