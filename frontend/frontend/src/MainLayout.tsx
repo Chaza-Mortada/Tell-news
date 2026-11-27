@@ -253,12 +253,80 @@ const handleLogout = async () => {
         <Outlet context={{ ads }} />
       </main>
 
-      <footer className="mt-24 border-t border-white/5 bg-[#141824] py-12 px-6 text-center">
-        <div className="bg-[#e61e25] w-fit mx-auto px-2 py-1 font-black text-xs uppercase tracking-tighter text-white mb-4">Tell News</div>
-        <p className="text-white/20 text-[9px] uppercase tracking-[0.5em]">
-          © 2026 Tell News 
-        </p>
-      </footer>
+      
+<footer className="mt-24 border-t border-white/5 bg-[#141824] py-12 px-6">
+  <div className="max-w-6xl mx-auto">
+
+    {/* Logo & Description */}
+    <div className="text-center mb-10">
+      <div className="bg-[#e61e25] w-fit mx-auto px-3 py-1.5 font-black text-sm uppercase tracking-tighter text-white mb-4">
+        Tell News
+      </div>
+      <p className="text-white/40 text-xs max-w-md mx-auto leading-relaxed">
+        Your trusted source for the latest news, stories, and updates.
+      </p>
+    </div>
+
+    {/* Contact & Links */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-10 max-w-xl mx-auto text-center mb-10">
+
+      {/* Contact Information */}
+      <div>
+        <h3 className="text-white text-xs font-bold uppercase tracking-widest mb-4">
+          Contact Us
+        </h3>
+        <div className="space-y-3 text-white/40 text-xs">
+          <p>
+            <span className="text-[#e61e25] mr-2">✉</span>
+            info@tellnews.com
+          </p>
+          <p>
+            <span className="text-[#e61e25] mr-2">☎</span>
+            +961 71717171
+          </p>
+        </div>
+      </div>
+
+      {/* Quick Links */}
+      <div>
+        <h3 className="text-white text-xs font-bold uppercase tracking-widest mb-4">
+          Quick Links
+        </h3>
+        <div className="flex flex-col gap-3 text-white/40 text-xs">
+          <a href="/" className="hover:text-[#e61e25] transition-colors">
+            Home
+          </a>
+          <a href="/about" className="hover:text-[#e61e25] transition-colors">
+            About Us
+          </a>
+          <a href="/privacy-policy" className="hover:text-[#e61e25] transition-colors">
+            Privacy Policy
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+    {/* Social Media */}
+    <div className="flex justify-center gap-6 mb-8 text-white/30 text-xs">
+      <a href="#" className="hover:text-[#e61e25] transition-colors">Facebook</a>
+      <a href="#" className="hover:text-[#e61e25] transition-colors">Instagram</a>
+      <a href="#" className="hover:text-[#e61e25] transition-colors">X</a>
+    </div>
+
+    {/* Copyright */}
+    <div className="border-t border-white/5 pt-6 text-center">
+      <p className="text-white/20 text-[9px] uppercase tracking-[0.3em]">
+        © {new Date().getFullYear()} Tell News. All Rights Reserved.
+      </p>
+      <p  className="text-white/20 text-[9px] uppercase tracking-[0.3em]">
+       Designed and Developed by Chaza Youssef Mortada 
+       </p>
+    </div>
+
+  </div>
+</footer>
+
     </div>
   );
 };

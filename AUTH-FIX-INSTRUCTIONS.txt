@@ -1,0 +1,50 @@
+TELL NEWS - COMPLETE UPDATED PROJECT
+
+This ZIP contains the complete project source from the uploaded Tell-news11 archive,
+with the authentication/CORS fixes integrated. It keeps the original Article model,
+news controller, image service, uploads, frontend pages, package files and Go module.
+
+IMPORTANT:
+- Extract this ZIP to a NEW folder first; do not overwrite your only project backup.
+- The project folder structure is:
+    backend/
+    frontend/frontend/
+- Do not copy only main.go or replace the backend folder with a partial patch.
+- Do not commit .env files, passwords, DATABASE_URL, JWT_SECRET, or other secrets.
+
+LOCAL BACKEND:
+1. Open PowerShell in the backend folder (the folder containing go.mod).
+2. Ensure backend/.env exists locally and contains DATABASE_URL and JWT_SECRET.
+3. Run:
+       go mod tidy
+       go run .
+   Prefer `go run .` because it builds all Go source files in the package.
+
+RENDER BACKEND ENVIRONMENT:
+- DATABASE_URL = your existing Render PostgreSQL connection string
+- JWT_SECRET = a long random secret, configured only in Render Environment
+- FRONTEND_URL = exact deployed frontend origin, e.g. https://your-frontend-name.onrender.com
+- COOKIE_SECURE = true
+- COOKIE_SAME_SITE = lax
+
+If frontend and backend are on genuinely different registrable domains, use
+COOKIE_SAME_SITE=none together with COOKIE_SECURE=true. Sibling *.onrender.com
+services are normally same-site.
+
+RENDER FRONTEND ENVIRONMENT:
+- VITE_API_URL = exact backend base URL, e.g. https://tell-news-1.onrender.com
+  Do not append /api or a trailing slash.
+
+FRONTEND BUILD:
+- Root Directory: frontend/frontend
+- Build Command: npm install && npm run build
+- Publish Directory: dist
+
+DATABASE:
+The User model has proper unique indexes for username and email, and hides the
+password hash from JSON. AutoMigrate does not delete existing users, but adding
+unique indexes can fail if duplicate usernames/emails already exist. Check for
+duplicates if Render logs show a migration/index error.
+
+This archive is source code only. It has not been deployed to Render, and production
+environment variables/database behavior must still be checked after deployment.

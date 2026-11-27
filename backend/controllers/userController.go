@@ -2,105 +2,128 @@ package controllers
 
 import (
 	"net/http"
+	"os"
+	"strings"
 	"time"
+
 	"backend/config"
-	"backend/models"   
+	"backend/models"
+
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
-	"github.com/gin-gonic/gin"
 )
 
-// Secret key for JWT (Keep this safe!)
-var jwtSecret = []byte("JWT_SECRET")
+const authCookieName = "token"
 
-// --- SIGNUP ---
+func setAuthCookie(c *gin.Context, token string, maxAge int) {
+	secure := strings.EqualFold(os.Getenv("COOKIE_SECURE"), "true")
+
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("COOKIE_SAME_SITE"))) {
+	case "none":
+		c.SetSameSite(http.SameSiteNoneMode)
+	case "strict":
+		c.SetSameSite(http.SameSiteStrictMode)
+	default:
+		c.SetSameSite(http.SameSiteLaxMode)
+	}
+
+	// Keep Domain empty so the cookie is scoped to the API host.
+	c.SetCookie(authCookieName, token, maxAge, "/", "", secure, true)
+}
+
+func parseAuthToken(raw string) (*jwt.Token, error) {
+	return jwt.Parse(raw, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, jwt.ErrTokenSignatureInvalid
+		}
+		return config.GetJWTSecret(), nil
+	}, jwt.WithIssuer("Tell-news"))
+}
+
+// Signup creates a new account.
 func Signup(c *gin.Context) {
 	var input struct {
 		Username string `json:"username" binding:"required"`
-		Email    string `json:"email" binding:"required"`
+		Email    string `json:"email" binding:"required,email"`
 		Password string `json:"password" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Username, valid email, and password are required"})
 		return
 	}
 
-	// 1. Hash the password
+	input.Username = strings.TrimSpace(input.Username)
+	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
+	if input.Username == "" || input.Password == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Username and password cannot be empty"})
+		return
+	}
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to secure password"})
 		return
 	}
 
-	// 2. Create the user object (Role defaults to 'user' because of GORM tag)
 	user := models.User{
 		Username: input.Username,
 		Email:    input.Email,
 		Password: string(hashedPassword),
+		Role:     "user",
 	}
 
-	// 3. Save to database
 	if err := config.DB.Create(&user).Error; err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "User already exists or database error"})
+		c.JSON(http.StatusConflict, gin.H{"error": "Username or email already exists"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Registration successful"})
+	c.JSON(http.StatusCreated, gin.H{"message": "Registration successful"})
 }
 
+// Login verifies credentials and issues an HTTP-only JWT cookie.
 func Login(c *gin.Context) {
 	var input struct {
-		Email    string `json:"email" binding:"required"`
+		Email    string `json:"email" binding:"required,email"`
 		Password string `json:"password" binding:"required"`
 	}
 
-	// 1. Bind JSON input
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Valid email and password are required"})
 		return
 	}
+
+	input.Email = strings.ToLower(strings.TrimSpace(input.Email))
 
 	var user models.User
 	if err := config.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
 		return
 	}
-	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password))
-	if err != nil {
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
 		return
 	}
 
-	// 4. Generate JWT Token
-	secret := config.GetJWTSecret()
+	now := time.Now()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub":  user.ID,
 		"role": user.Role,
-		"iat":  time.Now().Unix(),
-		"exp":  time.Now().Add(time.Hour * 24).Unix(), // Expires in 24h
+		"iat":  now.Unix(),
+		"exp":  now.Add(24 * time.Hour).Unix(),
 		"iss":  "Tell-news",
 	})
 
-	// 5. Sign the token using the secret from your .env via config
-	tokenString, err := token.SignedString(secret)
+	tokenString, err := token.SignedString(config.GetJWTSecret())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create token"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create authentication token"})
 		return
 	}
 
-	// 6. Set the HTTP-Only Cookie
-	c.SetCookie(
-		"token",          // Cookie Name
-		tokenString,      // JWT Value
-		3600*24,          // MaxAge in seconds (1 day)
-		"/",              // Path
-		"localhost",      // Domain
-		false,            // Secure: Set to true only if using HTTPS
-		true,             // HttpOnly: CRITICAL for security
-	)
+	setAuthCookie(c, tokenString, 24*60*60)
 
-	// 7. Return non-sensitive info to the frontend
 	c.JSON(http.StatusOK, gin.H{
 		"message":  "Login successful",
 		"role":     user.Role,
@@ -108,40 +131,35 @@ func Login(c *gin.Context) {
 	})
 }
 
+// ValidateAuth reports the current browser authentication state.
 func ValidateAuth(c *gin.Context) {
-    // 1. Get cookie
-    cookie, err := c.Cookie("token")
-    if err != nil {
-        c.JSON(http.StatusUnauthorized, gin.H{"role": "guest", "authenticated": false})
-        return
-    }
+	rawCookie, err := c.Cookie(authCookieName)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"authenticated": false, "role": "guest"})
+		return
+	}
 
-    // 2. Parse JWT
-    token, _ := jwt.Parse(cookie, func(token *jwt.Token) (interface{}, error) {
-        return config.GetJWTSecret(), nil
-    })
+	token, err := parseAuthToken(rawCookie)
+	if err != nil || token == nil || !token.Valid {
+		c.JSON(http.StatusUnauthorized, gin.H{"authenticated": false, "role": "guest"})
+		return
+	}
 
-    if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-        c.JSON(http.StatusOK, gin.H{
-            "authenticated": true,
-            "role":          claims["role"],
-            "userId":        claims["sub"],
-        })
-    } else {
-        c.JSON(http.StatusUnauthorized, gin.H{"authenticated": false})
-    }
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"authenticated": false, "role": "guest"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"authenticated": true,
+		"role":          claims["role"],
+		"userId":        claims["sub"],
+	})
 }
 
+// Logout expires the authentication cookie.
 func Logout(c *gin.Context) {
-    // Overwrite the cookie with an expired date
-    c.SetCookie(
-        "token",
-        "",
-        -1, // -1 MaxAge tells the browser to delete it immediately
-        "/",
-        "localhost",
-        false, // Secure (match your login settings)
-        true,  // HttpOnly
-    )
-    c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
+	setAuthCookie(c, "", -1)
+	c.JSON(http.StatusOK, gin.H{"message": "Logged out successfully"})
 }

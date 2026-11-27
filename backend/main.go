@@ -1,13 +1,15 @@
 package main
 
 import (
+	"net/http"
+	"os"
+	"strings"
+	"time"
+
 	"backend/config"
 	"backend/controllers"
 	"backend/middleware"
 	"backend/models"
-	"net/http"
-	"os"
-	"strings"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -15,11 +17,12 @@ import (
 
 func main() {
 	config.ConnectDatabase()
-	config.DB.AutoMigrate(&models.Article{}, &models.User{})
+
+	if err := config.DB.AutoMigrate(&models.Article{}, &models.User{}); err != nil {
+		panic(err)
+	}
 
 	r := gin.Default()
-
-	frontendURL := os.Getenv("FRONTEND_URL")
 
 	allowedOrigins := []string{
 		"http://localhost:5173",
@@ -27,8 +30,11 @@ func main() {
 		"https://tell-news-frontend.onrender.com",
 	}
 
-	if frontendURL != "" {
-		allowedOrigins = append(allowedOrigins, frontendURL)
+	for _, origin := range strings.Split(os.Getenv("FRONTEND_URL"), ",") {
+		origin = strings.TrimRight(strings.TrimSpace(origin), "/")
+		if origin != "" {
+			allowedOrigins = append(allowedOrigins, origin)
+		}
 	}
 
 	r.Use(cors.New(cors.Config{
@@ -36,15 +42,14 @@ func main() {
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
 	}))
 
 	api := r.Group("/api")
 	{
-		// Public Auth Routes
 		api.POST("/register", controllers.Signup)
 		api.POST("/login", controllers.Login)
 
-		// Public News & Ads Routes
 		api.GET("/news", controllers.GetArticles)
 		api.GET("/news/:slug", controllers.GetArticleBySlug)
 		api.GET("/ads/:id", controllers.GetAdDetail)
@@ -54,18 +59,10 @@ func main() {
 
 	r.StaticFS("/uploads", http.Dir("uploads"))
 
-	r.Use(func(c *gin.Context) {
-		if strings.Contains(c.Request.URL.Path, "/uploads") {
-			c.Header("Cache-Control", "public, max-age=31536000")
-		}
-		c.Next()
-	})
-
 	r.GET("/api/status", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "Running"})
+		c.JSON(http.StatusOK, gin.H{"status": "Running"})
 	})
 
-	// PROTECTED ROUTES (Only Admins)
 	admin := api.Group("/")
 	admin.Use(middleware.AdminOnly())
 	{
